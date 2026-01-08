@@ -1,0 +1,120 @@
+Screen {
+    background: #0a0a0f;
+    color: #00ff41;
+}
+
+/* Large stylized header */
+Header {
+    dock: top;
+    height: 3;
+    content-align: center middle;
+    background: #0a0a0f;
+    color: #d600ff;
+    text-style: bold;
+}
+
+Footer {
+    dock: bottom;
+    height: 2;
+    background: #0a0a0f;
+    color: #666;
+    content-align: center middle;
+    border-top: solid #333;
+}
+
+/* 3-column layout */
+#main-container {
+    layout: grid;
+    grid-size: 3;
+    grid-columns: 1fr 2fr 1fr;
+    grid-rows: 1fr;
+    padding: 1;
+    grid-gutter: 1;
+}
+
+.box {
+    border: heavy #d600ff;
+    background: #050508;
+    padding: 1;
+}
+
+/* Left panel - Tables Remaining */
+#table-list-panel {
+    height: 100%;
+    border: heavy #d600ff;
+    border-title-color: #d600ff;
+}
+
+/* Center panel - Data Entry */
+#visualizer-panel {
+    height: 100%;
+    border: heavy #00ff41;
+    border-title-color: #00ff41;
+}
+
+/* Right panel - Completed Tables */
+#completed-panel {
+    height: 100%;
+    border: heavy #00ff41;
+    border-title-color: #00ff41;
+}
+
+/* Bottom progress area */
+#progress-container {
+    dock: bottom;
+    height: 8;
+    background: #0a0a0f;
+    border: heavy #d600ff;
+    padding: 1;
+    margin: 1;
+}
+
+#progress-title {
+    text-align: center;
+    color: #d600ff;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+ProgressBar {
+    height: 1;
+    margin: 0 1;
+}
+
+ProgressBar > .bar--complete {
+    color: #00ff41;
+}
+
+ProgressBar > .bar--indeterminate {
+    color: #d600ff;
+}
+
+Label {
+    color: #00ff41;
+}
+
+.title {
+    color: #d600ff;
+    text-align: center;
+    text-style: bold;
+}
+
+.panel-title {
+    color: #d600ff;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+.completed-item {
+    color: #00ff41;
+}
+
+.pending-item {
+    color: #888;
+}
+
+/* Custom classes for log messages */
+.log-info { color: #00ff41; }
+.log-warn { color: #ffff00; }
+.log-error { color: #ff0000; }
+.log-ai { color: #00bfff; }

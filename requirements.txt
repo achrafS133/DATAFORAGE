@@ -1,0 +1,7 @@
+textual
+rich
+psycopg[binary]
+faker
+PyYAML
+requests
+networkx

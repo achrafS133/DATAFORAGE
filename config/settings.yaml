@@ -1,0 +1,15 @@
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: password
+  dbname: dataforge_db
+
+generation:
+  batch_size: 10
+  workers: 2
+  use_ai_mode: true
+
+ai:
+  api_url: "http://localhost:11434/api/generate"
+  model: "qwen3:latest"
