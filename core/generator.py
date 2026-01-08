@@ -23,58 +23,76 @@ def generate_row(columns_metadata, ai_config=None):
         col_lower = col_name.lower()
         type_lower = col_type.lower() if col_type else 'text'
         
-        # AI Attempt for ALL text fields when enabled
+        # AI Attempt for specific fields or any descriptive text
         if ai_agent and ('text' in type_lower or 'varchar' in type_lower or 'char' in type_lower):
-            # Use AI for descriptive fields
-            ai_fields = ['desc', 'bio', 'review', 'comment', 'content', 'body', 'summary', 'note', 'message']
-            if any(x in col_lower for x in ai_fields):
-                val = ai_agent.generate_text("table", col_name)
+            descriptive_fields = ['desc', 'bio', 'review', 'comment', 'diagnosis', 'major', 'course', 'content']
+            if any(x in col_lower for x in descriptive_fields):
+                val = ai_agent.generate_text("table", col_name, context_hint=f"Value for {col_name}")
 
         if val is None:
-            # Smart Faker rules based on column name
-            if 'int' in type_lower or 'integer' in type_lower:
-                if 'user_id' in col_lower or 'customer_id' in col_lower:
+            # Domain-Specific Logic
+            if 'diagnosis' in col_lower:
+                val = random.choice(["Hypertension", "Flu", "Migraine", "Fracture", "Diabetes", "Asthma", "Anxiety"])
+            elif 'department' in col_lower:
+                val = random.choice(["Cardiology", "ER", "Neurology", "Pediatrics", "Oncology", "Orthopedics"])
+            elif 'major' in col_lower:
+                val = random.choice(["Computer Science", "Mechanical Engineering", "Psychology", "Economics", "History"])
+            elif 'course' in col_lower:
+                val = random.choice(["Big Data", "Algorithms", "Calculus", "Quantum Mechanics", "Genetics"])
+            elif 'unit' in col_lower:
+                val = random.choice(["°C", "Pa", "kW", "m/s", "Lux", "%RH"])
+            
+            # Numeric Rules
+            elif 'int' in type_lower or 'integer' in type_lower:
+                if 'age' in col_lower:
+                    val = random.randint(1, 95)
+                elif 'score' in col_lower:
+                    val = random.randint(0, 100)
+                elif 'is_fraud' in col_lower:
+                    val = 1 if random.random() < 0.05 else 0
+                elif any(x in col_lower for x in ['user_id', 'customer_id', 'patient_id', 'account_id', 'sensor_id', 'student_id']):
                     val = random.randint(1, 100)
-                elif 'product_id' in col_lower:
-                    val = random.randint(1, 50)
                 elif 'quantity' in col_lower:
                     val = random.randint(1, 10)
                 elif 'rating' in col_lower:
                     val = random.randint(1, 5)
                 else:
                     val = random.randint(1, 1000)
-            elif 'real' in type_lower or 'float' in type_lower or 'double' in type_lower or 'decimal' in type_lower:
-                if 'price' in col_lower:
-                    val = round(random.uniform(9.99, 999.99), 2)
+            
+            # Currency / Float Rules
+            elif any(x in type_lower for x in ['real', 'float', 'double', 'decimal']):
+                if any(x in col_lower for x in ['price', 'cost', 'amount', 'balance']):
+                    val = round(random.uniform(10.0, 5000.0), 2)
+                elif 'value' in col_lower:
+                    val = round(random.uniform(-20.0, 150.0), 2)
                 else:
                     val = round(random.uniform(0, 100), 2)
-            elif 'char' in type_lower or 'text' in type_lower:
+            
+            # String Rules
+            elif any(x in type_lower for x in ['char', 'text']):
                 if 'email' in col_lower:
                     val = fake.email()
-                elif 'name' in col_lower:
+                elif 'name' in col_lower or 'owner' in col_lower:
                     val = fake.name()
-                elif 'phone' in col_lower:
-                    val = fake.phone_number()
-                elif 'address' in col_lower:
-                    val = fake.address().replace('\n', ', ')
                 elif 'city' in col_lower:
                     val = fake.city()
-                elif 'country' in col_lower:
-                    val = fake.country()
-                elif 'company' in col_lower:
-                    val = fake.company()
-                elif 'url' in col_lower or 'website' in col_lower:
-                    val = fake.url()
-                elif 'title' in col_lower:
-                    val = fake.sentence(nb_words=4)
+                elif 'type' in col_lower:
+                    val = random.choice(["Standard", "Premium", "Legacy", "Experimental"])
+                elif 'location' in col_lower:
+                    val = random.choice(["Zone A", "Zone B", "Warehouse", "Lab", "Global"])
                 else:
-                    val = fake.text(max_nb_chars=50)
+                    val = fake.sentence(nb_words=6)
+            
+            # Temporal Rules
             elif 'date' in type_lower or 'time' in type_lower:
                 val = str(fake.date_time_this_decade())
+            
+            # Boolean
             elif 'bool' in type_lower:
                 val = random.choice([True, False])
+            
             else:
-                val = "N/A"
+                val = "DataForge_Gen"
         
         row.append(val)
     return tuple(row)

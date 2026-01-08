@@ -1,6 +1,7 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static, ProgressBar, Label
-from textual.containers import Container, Vertical, Horizontal
+from textual.widgets import Header, Footer, Static, ProgressBar, Label, Button
+from textual.containers import Container, Vertical, Horizontal, Grid
+from textual.screen import Screen
 from textual.worker import Worker
 from ui.panels import TableList, VisualizerPanel, LogPanel
 from ui.visualizer import SchemaVisualizer
@@ -24,6 +25,19 @@ class CompletedTables(Static):
         self.completed = []
         self.update("(none yet)")
 
+class DomainSelector(Static):
+    """Screen to select the data domain."""
+    def compose(self) -> ComposeResult:
+        yield Label("SELECT DATA DOMAIN", id="domain-title")
+        yield Grid(
+            Button("🛒 E-commerce", id="ecommerce", variant="primary"),
+            Button("🏥 Healthcare", id="healthcare", variant="success"),
+            Button("💰 Finance", id="finance", variant="warning"),
+            Button("🏭 IoT", id="iot", variant="error"),
+            Button("🎓 Education", id="education", variant="default"),
+            id="domain-grid"
+        )
+
 class DataForgeApp(App):
     """The main TUI Application for DataForge."""
     
@@ -37,17 +51,18 @@ class DataForgeApp(App):
         ("e", "export_csv", "Export CSV"),
         ("x", "export_sql", "Export SQL"),
         ("r", "reset_db", "Reset DB"),
+        ("m", "main_menu", "Back to Menu"),
         ("q", "quit", "Quit"),
     ]
 
     def __init__(self):
         super().__init__()
         self.config = self.load_config()
-        self.db_connector = None
+        self.db_connector = DBConnector(self.config)
         self.schema_parser = None
         self.sorted_tables = []
         self.seeding_active = False
-        self.stats = {"rows_added": 0, "start_time": None, "rows_per_sec": 0}
+        self.current_domain = None
 
     def load_config(self, config_path="config/settings.yaml"):
         try:
@@ -60,74 +75,88 @@ class DataForgeApp(App):
         """Create child widgets for the app."""
         yield Header(show_clock=True)
         
-        # Main 3-column layout
-        with Container(id="main-container"):
-            # Left - Tables Remaining
-            with Container(id="table-list-panel", classes="box"):
-                yield Label("TABLES REMAINING", classes="panel-title")
-                yield TableList()
+        with Container(id="domain-selection-container"):
+            yield DomainSelector()
+
+        # Hidden by default
+        with Container(id="main-app-container", classes="hidden"):
+            with Container(id="main-container"):
+                # Left - Tables Remaining
+                with Container(id="table-list-panel", classes="box"):
+                    yield Label("TABLES REMAINING", classes="panel-title")
+                    yield TableList()
+                
+                # Center - Data Entry / Visualizer
+                with Container(id="visualizer-panel", classes="box"):
+                    yield Label("DATA ENTRY", classes="panel-title")
+                    yield VisualizerPanel()
+                
+                # Right - Completed Tables
+                with Container(id="completed-panel", classes="box"):
+                    yield Label("COMPLETED TABLES", classes="panel-title")
+                    yield CompletedTables()
             
-            # Center - Data Entry / Visualizer
-            with Container(id="visualizer-panel", classes="box"):
-                yield Label("DATA ENTRY", classes="panel-title")
-                yield VisualizerPanel()
-            
-            # Right - Completed Tables
-            with Container(id="completed-panel", classes="box"):
-                yield Label("COMPLETED TABLES", classes="panel-title")
-                yield CompletedTables()
-        
-        # Progress section
-        with Container(id="progress-container"):
-            yield Label("Progress", id="progress-title")
-            yield Label("Identifying relations", id="progress-label-1")
-            yield ProgressBar(total=100, id="progress-1")
-            yield Label("Inserting data into tables", id="progress-label-2")
-            yield ProgressBar(total=100, id="progress-2")
+            # Progress section
+            with Container(id="progress-container"):
+                yield Label("Progress", id="progress-title")
+                yield Label("Domain Status", id="progress-label-1")
+                yield ProgressBar(total=100, id="progress-1")
+                yield Label("Seeding Status", id="progress-label-2")
+                yield ProgressBar(total=100, id="progress-2")
         
         yield Footer()
 
-    async def on_mount(self) -> None:
-        """Called when app starts."""
-        # Update footer message
-        self.query_one(Footer).styles.height = 2
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle domain selection."""
+        domain_map = {
+            "ecommerce": "E-commerce",
+            "healthcare": "Healthcare",
+            "finance": "Finance",
+            "iot": "IoT",
+            "education": "Education"
+        }
         
-        # Start initialization in background
-        self.run_worker(self.initialize_backend, exclusive=True, thread=True)
+        if event.button.id in domain_map:
+            self.current_domain = domain_map[event.button.id]
+            self.query_one("#domain-selection-container").add_class("hidden")
+            self.query_one("#main-app-container").remove_class("hidden")
+            self.run_worker(self.initialize_domain, exclusive=True, thread=True)
 
-    def initialize_backend(self):
-        """Connects to DB and parses schema."""
-        # Update progress
-        self.call_from_thread(self.update_progress, 1, 0, "Connecting to database...")
+    def initialize_domain(self):
+        """Initializes the database for the selected domain."""
+        self.call_from_thread(self.update_progress, 1, 0, f"Initializing {self.current_domain}...")
         
-        try:
-            self.db_connector = DBConnector(self.config)
-            self.db_connector.fetch_tables()
-            self.call_from_thread(self.update_progress, 1, 50, "Database connected!")
-        except Exception as e:
-            self.call_from_thread(self.update_progress, 1, 0, f"Connection failed: {e}")
-            return
-
-        self.call_from_thread(self.update_progress, 1, 75, "Parsing schema...")
-        self.schema_parser = SchemaParser(self.db_connector)
-        self.sorted_tables = self.schema_parser.build_dependency_graph()
-        
-        # Update Table List
-        def update_table_list():
-            table_list = self.query_one(TableList)
-            for table in self.sorted_tables:
-                table_list.add_table(table)
-        self.call_from_thread(update_table_list)
+        if self.db_connector.init_domain(self.current_domain):
+            self.call_from_thread(self.update_progress, 1, 50, "Schema created!")
+            self.schema_parser = SchemaParser(self.db_connector)
+            self.sorted_tables = self.schema_parser.build_dependency_graph()
             
-        # Update Visualizer with current data preview
-        self.call_from_thread(self.update_progress, 1, 100, "Identifying relations")
-        
-        visualizer = SchemaVisualizer(self.schema_parser.graph)
-        stats = self.schema_parser.get_table_stats()
-        tree = visualizer.generate_tree(stats)
-        self.call_from_thread(self.query_one(VisualizerPanel).update_content, tree)
-        
-        self.call_from_thread(self.update_progress, 2, 0, "Ready! Press 's' to start seeding")
+            # Update Table List
+            def update_ui():
+                table_list = self.query_one(TableList)
+                table_list.clear_tables()  # Need to implement this
+                for table in self.sorted_tables:
+                    table_list.add_table(table)
+                
+                visualizer = SchemaVisualizer(self.schema_parser.graph)
+                stats = self.schema_parser.get_table_stats()
+                tree = visualizer.generate_tree(stats)
+                self.query_one(VisualizerPanel).update_content(tree)
+            
+            self.call_from_thread(update_ui)
+            self.call_from_thread(self.update_progress, 1, 100, f"Domain: {self.current_domain}")
+            self.call_from_thread(self.update_progress, 2, 0, "Ready! Press 's' to seed")
+        else:
+            self.call_from_thread(self.update_progress, 1, 0, "Initialization failed.")
+
+    def action_main_menu(self):
+        """Return to domain selection."""
+        self.query_one("#main-app-container").add_class("hidden")
+        self.query_one("#domain-selection-container").remove_class("hidden")
+        self.current_domain = None
+        # Reset bars
+        self.update_progress(1, 0, "Domain Status")
+        self.update_progress(2, 0, "Seeding Status")
 
     def update_progress(self, bar_num, value, label_text):
         """Update progress bar and label."""

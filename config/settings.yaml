@@ -12,4 +12,4 @@ generation:
 
 ai:
   api_url: "http://localhost:11434/api/generate"
-  model: "qwen3:latest"
+  model: "qwen:latest"

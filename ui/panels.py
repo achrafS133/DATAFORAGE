@@ -23,6 +23,11 @@ class TableList(Static):
             self.tables.remove(table_name)
             self._refresh_list()
     
+    def clear_tables(self):
+        self.tables = []
+        list_view = self.query_one("#table-list-view", ListView)
+        list_view.clear()
+
     def _refresh_list(self):
         list_view = self.query_one("#table-list-view", ListView)
         list_view.clear()
